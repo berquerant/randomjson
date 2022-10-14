@@ -1,0 +1,24 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+
+[dev-packages]
+pytest = "*"
+pytest-cov = "*"
+pyproject-flake8 = "*"
+black = "*"
+tox = "*"
+mypy = "*"
+pyparsing = "*"
+flake8 = "*"
+isort = "*"
+
+[requires]
+python_version = "3.11"
+
+[scripts]
+check = "tox -e isort,black,flake8,mypy -p 4"
+test = "tox -e py311"

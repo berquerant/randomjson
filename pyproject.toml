@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "randomjson"
+description = "Generate a random json."
+
+readme = "README.md"
+version = "0.1.0"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Developers"
+]
+keywords = ["randomjson"]
+
+[project.urls]
+repository = "https://github.com/berquerant/randomjson"
+
+[tool.setuptools.packages.find]
+exclude = ["build", "tests"]
+
+[project.scripts]
+randomjson = "randomjson.cli:main"
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.flake8]
+max-line-length = 120
+ignore = [
+  "E203",
+  "W503",
+  "W504"
+]
+statistics = true
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.isort]
+profile = "black"

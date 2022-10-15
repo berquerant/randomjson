@@ -66,7 +66,7 @@ example.json:
 }
 ```
 
-`python -m randomjson.cli --input-json @example.json` generates below:
+`python -m randomjson.cli @example.json` generates below:
 
 ``` json
 {

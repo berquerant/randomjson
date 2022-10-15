@@ -90,6 +90,8 @@ class Environment:
 
 
 class Vanisher:
+    """Remove `mark()`-ed elements from list and dict."""
+
     @staticmethod
     def mark() -> Any:
         return {"type": "randomjson.control.vanish"}

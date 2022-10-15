@@ -2,8 +2,9 @@
 import argparse
 import json
 import logging
+import os
 import random
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from inspect import signature
 from textwrap import dedent
 from typing import Any, Callable, cast
@@ -24,29 +25,16 @@ from randomjson.function import Builtin, Function
 class Argument:
 
     schema: dict[str, Any]
-    variables: dict[str, Any]
-    statements: list[str]
+    variables: dict[str, Any] = field(default_factory=dict)
+    statements: list[str] = field(default_factory=list)
+    only_preprocessor: bool = False
 
     @staticmethod
-    def new(
-        schema: dict[str, Any], variables: dict[str, Any] | None = None, statements: list[str] | None = None
-    ) -> "Argument":
-        return Argument(
-            schema=schema,
-            variables={} if variables is None else variables,
-            statements=[] if statements is None else statements,
-        )
+    def from_dict(value: dict[str, Any]) -> "Argument":
+        return Argument(**value)
 
-    @classmethod
-    def from_input_json(cls, value: dict[str, Any]) -> "Argument":
-        return cls.new(**value)
-
-    def into_input_json(self) -> dict[str, Any]:
-        return {
-            "schema": self.schema,
-            "variables": self.variables,
-            "statements": self.statements,
-        }
+    def into_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
     def run_preprocessor(self) -> dict[str, Any]:
         return preprocessor.Preprocessor().process(self.schema)
@@ -73,6 +61,8 @@ class Argument:
         return Evaluator(env=self.build_environment())
 
     def run(self) -> Any:
+        if self.only_preprocessor:
+            return self.run_preprocessor()
         evaluator = self.build_evaluator()
         result = {k: evaluator.eval(v) for k, v in self.parse_schema().items()}
         return Vanisher.run(result)
@@ -82,17 +72,17 @@ def generate_examples() -> str:
     def dumps(x: Any) -> str:
         return json.dumps(x, indent=4)
 
-    def run_and_format(doc: str, a: Argument, only_preproces=False) -> str:
-        input_json = dumps(a.into_input_json())
-        result = dumps(a.run_preprocessor() if only_preproces else a.run())
+    def run_and_format(doc: str, a: Argument) -> str:
+        input_json = dumps(a.into_dict())
+        result = dumps(a.run())
         return f"{dedent(doc).lstrip()}\n{input_json}\n\nresult:\n\n{result}"
 
-    examples: list[tuple[str, Argument, bool]] = [
+    examples: list[tuple[str, Argument]] = [
         (
             """
             Random JSON schema:
             """,
-            Argument.new(
+            Argument(
                 schema={
                     "random": {
                         "type": "function",
@@ -100,13 +90,12 @@ def generate_examples() -> str:
                     },
                 },
             ),
-            False,
         ),
         (
             """
             Repeat schema:
             """,
-            Argument.new(
+            Argument(
                 schema={
                     "items": {
                         "type": "repeat",
@@ -127,13 +116,12 @@ def generate_examples() -> str:
                     },
                 },
             ),
-            False,
         ),
         (
             """
             Read variables:
             """,
-            Argument.new(
+            Argument(
                 schema={
                     "items": {
                         "type": "repeat",
@@ -167,13 +155,12 @@ def generate_examples() -> str:
                     ],
                 },
             ),
-            False,
         ),
         (
             """
             Define fuctions:
             """,
-            Argument.new(
+            Argument(
                 schema={
                     "items": {
                         "type": "repeat",
@@ -235,13 +222,12 @@ def generate_examples() -> str:
                     ),
                 ],
             ),
-            False,
         ),
         (
             """
             Use macros, only preprocessing:
             """,
-            Argument.new(
+            Argument(
                 schema={
                     "title": "{{const|use macros}}",
                     "items": [
@@ -265,14 +251,14 @@ def generate_examples() -> str:
                         },
                     ],
                 },
+                only_preprocessor=True,
             ),
-            True,
         ),
         (
             """
             Use macros:
             """,
-            Argument.new(
+            Argument(
                 schema={
                     "title": "{{const|use macros}}",
                     "items": [
@@ -304,13 +290,12 @@ def generate_examples() -> str:
                     ],
                 },
             ),
-            False,
         ),
         (
             """
             Conditional branches:
             """,
-            Argument.new(
+            Argument(
                 schema={
                     "items": [
                         "{{repeat}}",
@@ -337,13 +322,12 @@ def generate_examples() -> str:
                     ],
                 },
             ),
-            False,
         ),
         (
             """
             Somewhat practical example:
             """,
-            Argument.new(
+            Argument(
                 schema={
                     "items": [
                         "{{repeat}}",
@@ -384,94 +368,89 @@ def generate_examples() -> str:
                     ],
                 },
             ),
-            False,
         ),
     ]
 
-    return "Examples(--input-json):\n\n" + "\n\n".join(run_and_format(*x) for x in examples)
+    return "EXAMPLES:\n\n" + "\n\n".join(run_and_format(*x) for x in examples)
 
 
 def generate_documents() -> str:
-    ast_doc_title = "Available node types:"
-    ast_doc = "".join(dedent(cast(str, x.__doc__)) for x in Node.__subclasses__())
+    env_docs = {
+        "RANDOMJSON_RANDOM_SEED": "Initialize the random number generator by this value if this is set.",
+        "RANDOMJSON_VERBOSE": "Enable verbose logging if this is set.",
+    }
+
+    def format_env_doc(name: str, doc: str) -> str:
+        doc = "\n".join("    " + x for x in dedent(doc).lstrip().rstrip().split("\n"))
+        return f"  {name}:\n{doc}"
+
+    env_doc = "ENVIRONMENT VARIABLES:\n\n" + "\n\n".join(
+        format_env_doc(k, env_docs[k]) for k in sorted(env_docs.keys())
+    )
+
+    all_node_classes = Node.__subclasses__()
+    ast_doc = "NODE TYPES:\n\n" + "".join(
+        dedent(cast(str, x.__doc__)) for x in sorted(all_node_classes, key=lambda x: x.__name__)
+    )
+
     preprocessor_doc = cast(str, preprocessor.__doc__).lstrip()
-    function_doc_title = "Available functions:\n"
 
     def format_function_doc(f: Callable) -> str:
         doc = "\n".join("  " + x for x in dedent(cast(str, f.__doc__)).lstrip().rstrip().split("\n"))
         return dedent(f"{f.__name__}{signature(f)}\n{doc}")
 
-    function_doc = "\n\n".join(format_function_doc(f) for f in Builtin.all_functions().values())
-    return "\n\n".join([ast_doc_title, ast_doc, preprocessor_doc, function_doc_title, function_doc])
+    all_functions = Builtin.all_functions()
+    function_doc = "FUNCTIONS:\n\n" + "\n\n".join(
+        format_function_doc(all_functions[k]) for k in sorted(all_functions.keys())
+    )
+
+    return "\n\n".join([env_doc, ast_doc, preprocessor_doc, function_doc])
 
 
 def generate_epilog() -> str:
     return generate_documents() + "\n\n" + generate_examples()
 
 
-def main() -> int:
-    """Entry point of CLI."""
+def __value_or_file(key: str) -> str:
+    if not key.startswith("@"):
+        return key
+    with open(key.lstrip("@")) as f:
+        return f.read()
+
+
+def new_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate random json.",
         epilog=generate_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--input-json",
+        "random_json",
         type=str,
-        action="store",
+        nargs=1,
         help="JSON contains schema, variables and statements. If starts with '@' then the rest is filename.",
     )
-    parser.add_argument(
-        "-s",
-        "--schema",
-        type=str,
-        action="store",
-        help="Schema for random JSON. If starts with '@' then the rest is filename.",
-    )
-    parser.add_argument(
-        "-t",
-        "--variable",
-        type=str,
-        action="store",
-        help="Variable table. If starts with '@' then the rest is filename.",
-    )
-    parser.add_argument("-i", "--statement", type=str, nargs="*", help="Statements for custom functions.")
     parser.add_argument("-E", "--only-preprocessor", action="store_true", help="Only run the preprocessor.")
-    parser.add_argument("--seed", action="store", help="Seed of the random number generator.")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging.")
-    args = parser.parse_args()
 
-    if args.verbose:
+    return parser
+
+
+def new_argument(args: argparse.Namespace) -> Argument:
+    return Argument.from_dict(
+        json.loads(__value_or_file(args.random_json[0])) | {"only_preprocessor": args.only_preprocessor}
+    )
+
+
+def main() -> int:
+    """Entry point of CLI."""
+
+    if "RANDOMJSON_VERBOSE" in os.environ:
         logging.basicConfig(level=logging.DEBUG)
+    random.seed(os.environ.get("RANDOMJSON_RANDOM_SEED"))
 
-    random.seed(args.seed)
-
-    def value_or_file(key: str) -> str:
-        if not key.startswith("@"):
-            return key
-        with open(key.lstrip("@")) as f:
-            return f.read()
-
-    def new_argument() -> Argument:
-        if args.input_json:
-            return Argument.from_input_json(json.loads(value_or_file(args.input_json)))
-
-        return Argument.new(
-            schema=json.loads(value_or_file(args.schema)),
-            variables=json.loads(value_or_file(args.variable)),
-            statements=args.statement,
-        )
-
-    def dump(x: Any):
-        print(json.dumps(x, ensure_ascii=False, separators=(",", ":")))
-
-    a = new_argument()
-    if args.only_preprocessor:
-        dump(a.run_preprocessor())
-        return 0
-
-    dump(a.run())
+    arg = new_argument(new_parser().parse_args())
+    logging.debug("[randomjson] start run")
+    print(json.dumps(arg.run(), ensure_ascii=False, separators=(",", ":")))
     return 0
 
 

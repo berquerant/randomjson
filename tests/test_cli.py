@@ -1,4 +1,5 @@
 import json
+from io import StringIO
 from tempfile import NamedTemporaryFile
 from typing import Any
 
@@ -38,3 +39,9 @@ def test_new_argument_file(random_json, random_json_argument):
         f.seek(0)
         args = [f"@{f.name}"]
         assert random_json_argument == cli.new_argument(cli.new_parser().parse_args(args))
+
+
+def test_new_argument_stdin(random_json, random_json_argument, monkeypatch):
+    monkeypatch.setattr("sys.stdin", StringIO(json.dumps(random_json)))
+    args = ["@-"]
+    assert random_json_argument == cli.new_argument(cli.new_parser().parse_args(args))

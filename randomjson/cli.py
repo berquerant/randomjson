@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import random
+import sys
 from dataclasses import asdict, dataclass, field
 from inspect import signature
 from textwrap import dedent
@@ -411,9 +412,11 @@ def generate_epilog() -> str:
     return generate_documents() + "\n\n" + generate_examples()
 
 
-def __value_or_file(key: str) -> str:
+def __value_or_file_or_stdin(key: str) -> str:
     if not key.startswith("@"):
         return key
+    if key == "@-":
+        return sys.stdin.read()
     with open(key.lstrip("@")) as f:
         return f.read()
 
@@ -428,7 +431,11 @@ def new_parser() -> argparse.ArgumentParser:
         "random_json",
         type=str,
         nargs=1,
-        help="JSON contains schema, variables and statements. If starts with '@' then the rest is filename.",
+        help=dedent(
+            """\
+        JSON contains schema, variables and statements.
+        If starts with '@' then the rest is filename. '@-' to read stdin."""
+        ),
     )
     parser.add_argument("-E", "--only-preprocessor", action="store_true", help="Only run the preprocessor.")
 
@@ -437,7 +444,7 @@ def new_parser() -> argparse.ArgumentParser:
 
 def new_argument(args: argparse.Namespace) -> Argument:
     return Argument.from_dict(
-        json.loads(__value_or_file(args.random_json[0])) | {"only_preprocessor": args.only_preprocessor}
+        json.loads(__value_or_file_or_stdin(args.random_json[0])) | {"only_preprocessor": args.only_preprocessor}
     )
 
 
@@ -455,6 +462,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    import sys
-
     sys.exit(main())

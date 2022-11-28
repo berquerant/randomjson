@@ -222,10 +222,12 @@ class Preprocessor:
 
     @preprocess
     def process(self, node: Any) -> Any:
-        if isinstance(node, str):
-            return self.__process_str(node)
-        if isinstance(node, list):
-            return self.__process_list(node)
-        if isinstance(node, dict):
-            return {k: self.process(v) for k, v in node.items()}
-        return node
+        match node:
+            case str():
+                return self.__process_str(node)
+            case list():
+                return self.__process_list(node)
+            case dict():
+                return {k: self.process(v) for k, v in node.items()}
+            case _:
+                return node

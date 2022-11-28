@@ -7,7 +7,7 @@ name = "randomjson"
 description = "Generate a random json."
 
 readme = "README.md"
-version = "0.2.1"
+version = "0.2.2"
 requires-python = ">=3.11"
 license = {file = "LICENSE"}
 classifiers = [

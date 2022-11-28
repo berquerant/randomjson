@@ -83,20 +83,21 @@ class Builtin:
             raise Exception("cannot add empty")
 
         a = args[0]
-        if isinstance(a, bool):
-            return any(args)
-        if isinstance(a, (int, float)):
-            return sum(args)
-        if isinstance(a, str):
-            return "".join(args)
-        if isinstance(a, list):
-            return sum(args, start=[])
-        if isinstance(a, tuple):
-            return sum(args, start=tuple())
-        if isinstance(a, (set, frozenset, dict)):
-            return reduce(operator.or_, args)
-
-        raise Exception(f"cannot add {type(a)}, {args}")
+        match a:
+            case bool():
+                return any(args)
+            case int() | float():
+                return sum(args)
+            case str():
+                return "".join(args)
+            case list():
+                return sum(args, start=[])
+            case tuple():
+                return sum(args, start=tuple())
+            case set() | frozenset() | dict():
+                return reduce(operator.or_, args)
+            case _:
+                raise Exception(f"cannot add {type(a)}, {args}")
 
     @staticmethod
     @function
@@ -108,12 +109,13 @@ class Builtin:
         int, float: subtraction
         set: set difference
         """
-        if isinstance(left, bool):
-            return left and not right
-        if isinstance(left, (int, float, set, frozenset)):
-            return left - right
-
-        raise Exception(f"cannot sub {type(left)}, {left} {right}")
+        match left:
+            case bool():
+                return left and not right
+            case int() | float() | set() | frozenset():
+                return left - right
+            case _:
+                raise Exception(f"cannot sub {type(left)}, {left} {right}")
 
     @staticmethod
     @function
@@ -131,14 +133,15 @@ class Builtin:
             raise Exception("cannot mul empty")
 
         a = args[0]
-        if isinstance(a, bool):
-            return all(args)
-        if isinstance(a, (int, float)):
-            return reduce(operator.mul, args)
-        if isinstance(a, (set, frozenset)):
-            return reduce(operator.and_, args)
-
-        raise Exception(f"cannot mul {type(a)}, {args}")
+        match a:
+            case bool():
+                return all(args)
+            case int() | float():
+                return reduce(operator.mul, args)
+            case set() | frozenset():
+                return reduce(operator.and_, args)
+            case _:
+                raise Exception(f"cannot mul {type(a)}, {args}")
 
     @staticmethod
     @function
@@ -195,11 +198,13 @@ class Builtin:
         bool: apply `not`
         int, float: reverse the sign
         """
-        if isinstance(value, bool):
-            return not value
-        if isinstance(value, (int, float)):
-            return -value
-        raise Exception(f"cannot neg {value}")
+        match value:
+            case bool():
+                return not value
+            case int() | float():
+                return -value
+            case _:
+                raise Exception(f"cannot neg {value}")
 
     @staticmethod
     @function
@@ -295,11 +300,13 @@ class Builtin:
             return args[0], args[1]
 
         a = args[0]
-        if isinstance(a, float):
-            return uniform(*ends())
-        if isinstance(a, int):
-            return randint(*ends())
-        raise Exception(f"cannot generate rand from {type(a)} {ends()}")
+        match a:
+            case float():
+                return uniform(*ends())
+            case int():
+                return randint(*ends())
+            case _:
+                raise Exception(f"cannot generate rand from {type(a)} {ends()}")
 
     @staticmethod
     @function

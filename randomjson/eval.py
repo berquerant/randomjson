@@ -99,11 +99,13 @@ class Vanisher:
     @classmethod
     def run(cls, obj: Any) -> Any:
         m = cls.mark()
-        if isinstance(obj, list):
-            return [cls.run(x) for x in obj if x != m]
-        if isinstance(obj, dict):
-            return {k: cls.run(v) for k, v in obj.items() if v != m}
-        return obj
+        match obj:
+            case list():
+                return [cls.run(x) for x in obj if x != m]
+            case dict():
+                return {k: cls.run(v) for k, v in obj.items() if v != m}
+            case _:
+                return obj
 
 
 @dataclass
@@ -116,13 +118,13 @@ class Evaluator:
 
     def __eval_variable(self, node: ast.Variable) -> Any:
         if not self.env.variables.has(node.name):
-            raise Exception("variable {node.name} not found")
+            raise Exception(f"variable {node.name} not found")
         return self.env.variables.get(node.name)
 
     def __eval_function(self, node: ast.Function) -> Any:
         f = self.env.functions.get(node.name)
         if f is None:
-            raise Exception("function {node.name} not found")
+            raise Exception(f"function {node.name} not found")
 
         # evaluate arguments before call function
         args: list[Any] = []
@@ -145,11 +147,13 @@ class Evaluator:
             raise Exception(f"function {node.name}{signature(f)} args {args} kwargs {kwargs} call") from e
 
     def __eval_top_level_union(self, node: ast.TopLevelUnion) -> Any:
-        if isinstance(node, ast.Node):
-            return self.eval(node)
-        if isinstance(node, list):
-            return [self.eval(x) for x in node]
-        return {k: self.eval(v) for k, v in node.items()}
+        match node:
+            case ast.Node():
+                return self.eval(node)
+            case list():
+                return [self.eval(x) for x in node]
+            case _:
+                return {k: self.eval(v) for k, v in node.items()}
 
     def __eval_repeat(self, node: ast.Repeat) -> Any:
         try:
@@ -186,16 +190,18 @@ class Evaluator:
     def eval(self, node: ast.Node) -> Any:
         """Evaluate node."""
         try:
-            if isinstance(node, ast.Const):
-                return self.__eval_const(node)
-            if isinstance(node, ast.Variable):
-                return self.__eval_variable(node)
-            if isinstance(node, ast.Function):
-                return self.__eval_function(node)
-            if isinstance(node, ast.Repeat):
-                return self.__eval_repeat(node)
-            if isinstance(node, ast.Cond):
-                return self.__eval_cond(node)
-            raise Exception("Unknown node")
+            match node:
+                case ast.Const():
+                    return self.__eval_const(node)
+                case ast.Variable():
+                    return self.__eval_variable(node)
+                case ast.Function():
+                    return self.__eval_function(node)
+                case ast.Repeat():
+                    return self.__eval_repeat(node)
+                case ast.Cond():
+                    return self.__eval_cond(node)
+                case _:
+                    raise Exception("Unknown node")
         except Exception as e:
             raise Exception(str(node)) from e
